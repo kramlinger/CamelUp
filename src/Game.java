@@ -9,20 +9,17 @@ public class Game {
     private final Player[] players;
     private static final int ROWS = 5;
     private static final int COLS = 18;
-
     public int playerTurn = 0;
-    private final int numberPlayers;
-
     private boolean raceFinished = false;
     private final PropertyChangeSupport support = new PropertyChangeSupport(this);
-
-
+    private final GameState gameState; // numeric summary of the current game state
     private final List<LapCards> freeLapCards;
-
     private final List<RaceCards> winnerCamelCards = new ArrayList<>();
     private final List<RaceCards> loserCamelCards = new ArrayList<>();
 
-    public Game(int numberPlayers) {
+    public Game(Player[] players) {
+        this.players = players;
+
         camels = new Camel[5];
 
         // Initialize the camels with their names and initial x-coordinate
@@ -36,10 +33,8 @@ public class Game {
         shuffleCamelPositions();
 
         // Set players
-        this.numberPlayers = numberPlayers;
-        players = new Player[numberPlayers];
-        for (int i = 0; i < numberPlayers; i++) {
-            this.players[i] = new Player(i, camels);
+        for (Player p : players) {
+            p.addRaceCards(camels); // Presumably bad practice, but it works...
         }
 
         // Set LapCards
@@ -49,12 +44,51 @@ public class Game {
             freeLapCards.add(new LapCards(c, 3));
             freeLapCards.add(new LapCards(c, 2));
         }
+
+        // Set up GameState
+        Player currentPlayer = players[playerTurn];
+        gameState = new GameState(this, currentPlayer, new int[24 + players.length * 2]);
+        gameState.updateGameState();
+
     }
 
+    // Start game
+    public void start() {
+        // First, we need to populate the AI Players game fields.
+        for (Player player : players) {
+            if (player instanceof AIPlayer ai) {
+                ai.setGame(this);
+            }
+        }
+
+        handleTurn(); // call this manually or from UI
+    }
+
+    public void handleTurn() {
+        Player currentPlayer = players[playerTurn];
+
+        System.out.println("Player: " + currentPlayer);
+
+        if (!(currentPlayer instanceof HumanPlayer)) {
+            takeTurn(currentPlayer);
+        }
+    }
+
+    // Getters
     public Camel[] getCamels() {
         return camels;
     }
 
+    public int getCols() { return COLS; }
+    public List<RaceCards> getWinnerCamelCards() { return winnerCamelCards; }
+    public List<RaceCards> getLoserCamelCards() { return loserCamelCards; }
+    public List<LapCards> getFreeLapCards() { return freeLapCards; }
+    public Player getCurrentPlayer() { return players[playerTurn]; }
+
+    public int getNumberPlayers() {return players.length; }
+
+
+    // Used methods
     public List<Camel> freeLapCards() {
 
         List<Camel> filteredCamels = new ArrayList<>();
@@ -86,19 +120,15 @@ public class Game {
     }
 
     public void takeWinnerRaceCard(Camel c) {
-        winnerCamelCards.add(players[playerTurn].setRaceCard(c));
-
-        System.out.print("Winner Cards: ");
-        for (RaceCards card : winnerCamelCards) {
-            System.out.printf("%s, %d; ", card.camel().getName(), card.player().getPlayerID());
-        }
-        System.out.printf("%n");
+        Player currentPlayer = players[playerTurn];
+        winnerCamelCards.add(currentPlayer.setRaceCard(c));
 
         turnFinished();
     }
 
     public void takeLoserRaceCard(Camel c) {
-        loserCamelCards.add(players[playerTurn].setRaceCard(c));
+        Player currentPlayer = players[playerTurn];
+        loserCamelCards.add(currentPlayer.setRaceCard(c));
         turnFinished();
     }
 
@@ -122,7 +152,8 @@ public class Game {
         freeLapCards.remove(highestValueCard);
 
         // Add it to players inventory
-        players[playerTurn].addLapCard(highestValueCard);
+        Player currentPlayer = players[playerTurn];
+        currentPlayer.addLapCard(highestValueCard);
 
         turnFinished();
     }
@@ -130,7 +161,8 @@ public class Game {
     public void advanceCamel() {
 
         // update Player
-        players[playerTurn].addPyramidCard();
+        Player currentPlayer = players[playerTurn];
+        currentPlayer.addPyramidCard();
 
         // select Camel
         List<Camel> unMovedCamels = new ArrayList<>();
@@ -292,9 +324,6 @@ public class Game {
 
     private void turnFinished() {
 
-        // It's next Player's turn
-        playerTurn = (playerTurn + 1) % numberPlayers;
-
         // Check if Lap is finished
         // List<Camel> unMovedCamels = new ArrayList<>();
 
@@ -318,6 +347,19 @@ public class Game {
                 finishRace();
             }
         }
+        /*
+        System.out.print("Money: ");
+        for (Player p : players) {
+            System.out.printf("%d,", p.getMoney());
+        }
+        System.out.printf("%n");
+         */
+
+
+        // It's next Player's turn
+        playerTurn = (playerTurn + 1) % players.length;
+        handleTurn();
+
     }
 
     public String getResults() {
@@ -337,12 +379,12 @@ public class Game {
         }
         // System.out.printf("winnerMoney %d%n", winnerMoney);
 
-        ArrayList<Player> winners = new ArrayList<>();;
+        ArrayList<Player> winners = new ArrayList<>();
         for (Player p : players) {
             if (p.getMoney() == winnerMoney) { winners.add(p); }
         }
         if (winners.size() == 1) {
-            playerWinner = "Player " + String.valueOf(winners.get(0).getPlayerID() + 1) + " won the game! ";
+            playerWinner = winners.get(0).getName() + " won the game! ";
         } else if (winners.size() > 1) {
             playerWinner = winners.stream()
                     .map(player -> String.valueOf(player.getPlayerID() + 1))
@@ -371,6 +413,7 @@ public class Game {
                 if (card.camel() != winningCamel) {
                     card.player().addMoney(-1);
                 } else {
+                    // System.out.printf("Add price money: %d%n", value[valueCounter]);
                     card.player().addMoney(value[valueCounter]);
                     valueCounter += 1;
                 }
@@ -450,5 +493,10 @@ public class Game {
 
     public void removePropertyChangeListener(PropertyChangeListener pcl) {
         support.removePropertyChangeListener(pcl);
+    }
+
+    public void takeTurn(Player player) {
+        player.takeTurn(); // Make move
+        support.firePropertyChange("moveMade", null, null); // Notify UI
     }
 }

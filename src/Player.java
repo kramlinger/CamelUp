@@ -1,29 +1,40 @@
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
 
-public class Player {
+public abstract class Player {
 
-    private final int playerID;
-    private int money = 0;
-    private int pyramidCards = 0;
+    protected final int playerID;
+    protected final String name;
+    protected int money = 0;
+    protected int pyramidCards = 0;
 
-    private final List<LapCards> playerLapCards = new ArrayList<>();
-    private List<RaceCards> raceCards;
+    protected final List<LapCards> playerLapCards = new ArrayList<>();
+    protected List<RaceCards> raceCards;
 
-    public Player(int playerID, Camel[] camels) {
+    public Player(int playerID, String name) {
         this.playerID = playerID;
+        this.name = name;
+    }
+    public abstract void takeTurn();
+
+    public String getName() { return name; }
+
+    // Methods for all Players
+    public void addRaceCards(Camel[] camels) {
         raceCards = new ArrayList<>();
         for (Camel c : camels) {
             raceCards.add(new RaceCards(c, this));
         }
     }
 
+
     public void addLapCard(LapCards card) {
         playerLapCards.add(card);
     }
 
     public void addPyramidCard() {
-        this.pyramidCards = +1;
+        this.pyramidCards += 1;
     }
 
     public void resetMoney() {
@@ -91,5 +102,6 @@ public class Player {
     public List<RaceCards> getRaceCards() {
         return this.raceCards;
     }
+
 
 }

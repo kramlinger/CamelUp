@@ -74,7 +74,7 @@ public class Board {
         // Populate the table with player data
         for (Player player : players) {
             tableModel.addRow(new Object[]{
-                    player.getPlayerID() + 1,
+                    player.getName(),
                     player.getMoney(),
                     player.lapBets()
             });
@@ -267,7 +267,7 @@ public class Board {
 
     // Update the turn label dynamically
     private void updateTurnLabel() {
-        turnLabel.setText("It's Player " + (game.playerTurn + 1) + "'s turn");
+        turnLabel.setText("It's Player " + game.getCurrentPlayer().getName() + "'s turn");
     }
 
     // Method to fill the grid based on camel positions (Now using camel names)
