@@ -1,0 +1,1 @@
+public record LapCards(Camel camel, int value) {}

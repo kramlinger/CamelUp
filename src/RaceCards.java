@@ -1,0 +1,1 @@
+public record RaceCards(Camel camel, Player player) {}

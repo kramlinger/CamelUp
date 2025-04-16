@@ -1,0 +1,454 @@
+import java.util.*;
+
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
+import java.util.stream.Collectors;
+
+public class Game {
+    private final Camel[] camels;
+    private final Player[] players;
+    private static final int ROWS = 5;
+    private static final int COLS = 18;
+
+    public int playerTurn = 0;
+    private final int numberPlayers;
+
+    private boolean raceFinished = false;
+    private final PropertyChangeSupport support = new PropertyChangeSupport(this);
+
+
+    private final List<LapCards> freeLapCards;
+
+    private final List<RaceCards> winnerCamelCards = new ArrayList<>();
+    private final List<RaceCards> loserCamelCards = new ArrayList<>();
+
+    public Game(int numberPlayers) {
+        camels = new Camel[5];
+
+        // Initialize the camels with their names and initial x-coordinate
+        camels[0] = new Camel("Blue", 0, -1); // Temporary y-coordinate, will be shuffled
+        camels[1] = new Camel("Yellow", 0, -1);
+        camels[2] = new Camel("Green", 0, -1);
+        camels[3] = new Camel("Orange", 0, -1);
+        camels[4] = new Camel("White", 0, -1);
+
+        // Shuffle the y-coordinates for the camels
+        shuffleCamelPositions();
+
+        // Set players
+        this.numberPlayers = numberPlayers;
+        players = new Player[numberPlayers];
+        for (int i = 0; i < numberPlayers; i++) {
+            this.players[i] = new Player(i, camels);
+        }
+
+        // Set LapCards
+        freeLapCards = new ArrayList<>();
+        for (Camel c : camels) {
+            freeLapCards.add(new LapCards(c, 5));
+            freeLapCards.add(new LapCards(c, 3));
+            freeLapCards.add(new LapCards(c, 2));
+        }
+    }
+
+    public Camel[] getCamels() {
+        return camels;
+    }
+
+    public List<Camel> freeLapCards() {
+
+        List<Camel> filteredCamels = new ArrayList<>();
+
+        for (Camel c : camels) {
+            boolean camelPresent = freeLapCards.stream()
+                    .anyMatch(card -> card.camel().equals(c));
+            if (camelPresent) {
+                filteredCamels.add(c);
+            }
+
+        }
+        return filteredCamels;
+    }
+
+    public List<Camel> freeLapCardCamels() {
+
+        List<Camel> freeLapCardCamels = new ArrayList<>();
+        for (Camel c : camels) {
+            boolean camelPresent = freeLapCards.stream()
+                    .anyMatch(card -> card.camel().equals(c));
+
+            if (camelPresent) {
+                freeLapCardCamels.add(c);
+            }
+        }
+
+        return freeLapCardCamels;
+    }
+
+    public void takeWinnerRaceCard(Camel c) {
+        winnerCamelCards.add(players[playerTurn].setRaceCard(c));
+
+        System.out.print("Winner Cards: ");
+        for (RaceCards card : winnerCamelCards) {
+            System.out.printf("%s, %d; ", card.camel().getName(), card.player().getPlayerID());
+        }
+        System.out.printf("%n");
+
+        turnFinished();
+    }
+
+    public void takeLoserRaceCard(Camel c) {
+        loserCamelCards.add(players[playerTurn].setRaceCard(c));
+        turnFinished();
+    }
+
+    public void takeLapCard(Camel c) {
+
+        // Filter cards that have the same Camel as c
+        List<LapCards> filteredCards = freeLapCards.stream()
+                .filter(card -> card.camel().equals(c))  // Keep cards that match the camel
+                .toList();  // Collect into a new list
+
+        // Find the LapCard with the largest value among the filtered cards
+        LapCards highestValueCard = filteredCards.get(0);  // Start with the first card
+
+        for (LapCards card : filteredCards) {
+            if (card.value() > highestValueCard.value()) {
+                highestValueCard = card;  // Update if we find a card with a larger value
+            }
+        }
+
+        // Remove the card from the list after using it
+        freeLapCards.remove(highestValueCard);
+
+        // Add it to players inventory
+        players[playerTurn].addLapCard(highestValueCard);
+
+        turnFinished();
+    }
+
+    public void advanceCamel() {
+
+        // update Player
+        players[playerTurn].addPyramidCard();
+
+        // select Camel
+        List<Camel> unMovedCamels = new ArrayList<>();
+
+        // Collect camels that have hasMoved == true
+        for (Camel camel : camels) {
+            if (!camel.getHasMoved()) {
+                unMovedCamels.add(camel);
+            }
+        }
+        Random random = new Random();
+
+        // System.out.printf("CamelIndex %d%n", unMovedCamels.size());
+
+        if (unMovedCamels.isEmpty()) {
+            System.out.println("No camels available to move.");
+            return; // Exit the method early -- should not happen
+        }
+
+        Camel camel = unMovedCamels.get(random.nextInt(unMovedCamels.size()));
+        //System.out.printf("Camel %s%n", camel.getName());
+
+        // select stepSize
+        int stepSize = random.nextInt(3) + 1;
+        if (camel.getX() + stepSize > COLS - 1) {
+            stepSize = COLS - camel.getX() - 1;
+        }
+
+        // System.out.printf("stepSize %d%n", stepSize);
+
+        // Now, advance selected camel
+        advanceSelectedCamel(camel, stepSize);
+
+        // Finish turn
+        turnFinished();
+    }
+
+    private void advanceSelectedCamel(Camel camel, int stepSize) {
+
+        if (camel.getX() == COLS - 1) {return; } // do not advance if already at end.
+
+        // set hasMoved flag
+        camel.setHasMoved();
+
+        // Get all camels to be moved
+        List<Camel> carriedCamels = getCarriedCamels(camel);
+
+        // y-shift
+        int yShift = getFreeTile(camel.getX() + stepSize) - camel.getY();
+
+        // Move the camels
+        for (Camel c : carriedCamels) {
+            c.moveCamel(stepSize);
+            c.setY(c.getY() + yShift);
+        }
+
+        // printPositions();
+    }
+
+    private int getFreeTile(int x) {
+        int y = 4;
+        for (Camel camel : camels) {
+            if (camel.getX() == x) {
+                y -= 1;
+            }
+        }
+        return y;
+    }
+
+    /*
+    private boolean checkIfTileIsFree(int x, int y) {
+        boolean isFree = y <= ROWS - 1; // tile not free because it is the end of board
+        for (Camel c : camels) {
+            if (c.getX() == x && c.getY() == y) {
+                isFree = false;
+                break;
+            }
+        }
+        return isFree;
+    }
+    */
+
+    private List<Camel> getCarriedCamels(Camel camel) {
+        // get the current and all its carried camels
+
+        List<Camel> carriedCamels = new ArrayList<>();
+
+        carriedCamels.add(camel); // add current
+
+        int x = camel.getX();
+        int y = camel.getY();
+
+        // if race has started
+        if (camel.getX() > 0) {
+            // add all camels with *smaller* y-value.
+            for (Camel c : camels) {
+                if (c.getX() == x && c.getY() < y) {
+                    carriedCamels.add(c);
+                }
+            }
+        }
+
+        return carriedCamels;
+    }
+
+    private void shuffleCamelPositions() {
+        // Shuffle the positions for the y-coordinate
+        List<Integer> positions = new ArrayList<>();
+        for (int i = 0; i < ROWS; i++) {
+            positions.add(i);
+        }
+        Collections.shuffle(positions);
+
+        // Assign shuffled positions to the camels
+        for (int i = 0; i < camels.length; i++) {
+            camels[i].setPosition(0, positions.get(i)); // Place at column 0 with a shuffled y
+        }
+    }
+
+    public void reset() {
+
+        this.raceFinished = false;
+
+        // Reset camels to their initial positions, but shuffle the y-coordinates
+        for (Camel c : camels) {
+            c.setPosition(0, -1);
+            c.resetHasMoved();
+        }
+        shuffleCamelPositions();
+
+        // Reset Players
+        playerTurn = 0;
+        for (Player p : players) {
+            p.resetMoney();
+            this.freeLapCards.addAll(p.returnPlayerLapCards());
+            for (RaceCards card : winnerCamelCards) {
+                if (card.player() == p) {
+                    p.returnRaceCards(card);
+                }
+            }
+            for (RaceCards card : loserCamelCards) {
+                if (card.player() == p) {
+                    p.returnRaceCards(card);
+                }
+            }
+        }
+
+
+
+    }
+
+    /*
+    public void printPositions() {
+        for (Camel c : camels) {
+            System.out.printf("Camel: %s, X: %d, Y: %d%n", c.getName(), c.getX(), c.getY());
+        }
+    }
+    */
+
+    private void turnFinished() {
+
+        // It's next Player's turn
+        playerTurn = (playerTurn + 1) % numberPlayers;
+
+        // Check if Lap is finished
+        // List<Camel> unMovedCamels = new ArrayList<>();
+
+        boolean areThereCamelsToMove = false;
+        for (Camel camel : camels) {
+            areThereCamelsToMove = areThereCamelsToMove || !camel.getHasMoved();
+        }
+
+        if (!areThereCamelsToMove) {
+            // reset camels
+            for (Camel camel : camels) {
+                camel.resetHasMoved();
+            }
+            lapFinished();
+        }
+
+        // Check if race is finished. Can only occur after turn is finished
+        for (Camel c : camels) {
+            if (c.getX() == COLS - 1) { // A camel has crossed the finishing line
+                // System.out.printf("Race is finished! ");
+                finishRace();
+            }
+        }
+    }
+
+    public String getResults() {
+        String camelWinner = "";
+        for (Camel c : camels) {
+            if (camelRanking(c) == 1) {
+                camelWinner = "The " + c.getName().toLowerCase() + " camel won the race. ";
+            }
+        }
+
+        String playerWinner = "";
+        int winnerMoney = Integer.MIN_VALUE;
+        for (Player p : players) {
+            if (p.getMoney() > winnerMoney) {
+                winnerMoney = p.getMoney();
+            }
+        }
+        // System.out.printf("winnerMoney %d%n", winnerMoney);
+
+        ArrayList<Player> winners = new ArrayList<>();;
+        for (Player p : players) {
+            if (p.getMoney() == winnerMoney) { winners.add(p); }
+        }
+        if (winners.size() == 1) {
+            playerWinner = "Player " + String.valueOf(winners.get(0).getPlayerID() + 1) + " won the game! ";
+        } else if (winners.size() > 1) {
+            playerWinner = winners.stream()
+                    .map(player -> String.valueOf(player.getPlayerID() + 1))
+                    .collect(Collectors.joining(", "));
+            playerWinner = "Players " + playerWinner + " are tied for first place! ";
+        }
+        return camelWinner + playerWinner;
+    }
+
+    private void finishRace() {
+
+        if (!this.raceFinished) {
+            // Invokes the end of lap
+            lapFinished();
+
+            // Compute race betting results
+            Camel winningCamel = null;
+            Camel loserCamel = null;
+            for ( Camel c : camels ) {
+                if (camelRanking(c) == 1) { winningCamel = c; }
+                if (camelRanking(c) == camels.length) { loserCamel = c; }
+            }
+            int[] value = {8, 5, 3, 2, 1}; // Maximum: 5 players, so length of value is five
+            int valueCounter = 0;
+            for (RaceCards card : winnerCamelCards) {
+                if (card.camel() != winningCamel) {
+                    card.player().addMoney(-1);
+                } else {
+                    card.player().addMoney(value[valueCounter]);
+                    valueCounter += 1;
+                }
+            }
+            valueCounter = 0;
+            for (RaceCards card : loserCamelCards) {
+                if (card.camel() != loserCamel) {
+                    card.player().addMoney(-1);
+                } else {
+                    card.player().addMoney(value[valueCounter]);
+                    valueCounter += 1;
+                }
+            }
+
+            // set game state
+            this.raceFinished = true;
+
+            // Notify listeners if the value has changed
+            support.firePropertyChange("raceFinished", false, true);
+
+        }
+    }
+
+    private void lapFinished() {
+        // calculate lap results
+        Camel firstCamel = camels[0];
+        Camel secondCamel = camels[0];
+        for (Camel c : camels) {
+            if (camelRanking(c) == 1) {
+                firstCamel = c;
+            }
+            if (camelRanking(c) == 2) {
+                secondCamel = c;
+            }
+        }
+
+        for (Player p : players) {
+            p.calculateLapResults(firstCamel, secondCamel);
+            this.freeLapCards.addAll(p.returnPlayerLapCards());
+        }
+
+    }
+
+    public Player[] getPlayers() { return players; }
+
+    public int camelRanking(Camel c) {
+        List<Camel> sorted = Arrays.asList(camels.clone()); // clone to avoid side effects
+
+        sorted.sort(Comparator
+                .comparingInt(Camel::getX).reversed()
+                .thenComparingInt(Camel::getY)
+        );
+
+        return sorted.indexOf(c) + 1;
+    }
+
+    public Camel leadingCamel() {
+        for (Camel c : camels) {
+            if (camelRanking(c) == 1) {
+                return c;
+            }
+        }
+        return null; // should not happen
+    }
+
+    public List<RaceCards> getRaceCards() {
+        return players[playerTurn].getRaceCards();
+    }
+
+    public boolean isRaceFinished() {
+        return raceFinished;
+    }
+
+    public void addPropertyChangeListener(PropertyChangeListener pcl) {
+        support.addPropertyChangeListener(pcl);
+    }
+
+    public void removePropertyChangeListener(PropertyChangeListener pcl) {
+        support.removePropertyChangeListener(pcl);
+    }
+}
