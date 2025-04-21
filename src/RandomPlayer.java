@@ -5,6 +5,7 @@ public class RandomPlayer extends AIPlayer {
 
     public RandomPlayer(int playerID, String name) {
         super(playerID, name);
+        this.playerType = "Random";
     }
 
     @Override
@@ -19,7 +20,7 @@ public class RandomPlayer extends AIPlayer {
         List<Integer> legalMoves = new ArrayList<>();
 
         for (int i = 0; i < 16; i++) {
-            if (isLegal(i, game)) {
+            if (isLegal(i)) {
                 legalMoves.add(i);
             }
         }

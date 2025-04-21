@@ -45,7 +45,7 @@ public class Menu {
                 typeDropdowns[i] = new JComboBox<>(new String[]{"Human"});
                 typeDropdowns[i].setEnabled(false);
             } else {
-                typeDropdowns[i] = new JComboBox<>(new String[]{"Human", "Random"});
+                typeDropdowns[i] = new JComboBox<>(new String[]{"Human", "Random", "Greedy"});
 
                 int idx = i;
                 toggles[i].addActionListener(e -> {
@@ -81,6 +81,7 @@ public class Menu {
                     switch (type) {
                         case "Human" -> player = new HumanPlayer(playerId, name);
                         case "Random" -> player = new RandomPlayer(playerId, name);
+                        case "Greedy" -> player = new GreedyPlayer(playerId, name);
                         default -> throw new IllegalStateException("Unexpected player type: " + type);
                     }
 

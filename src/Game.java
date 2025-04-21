@@ -17,6 +17,8 @@ public class Game {
     private final List<RaceCards> winnerCamelCards = new ArrayList<>();
     private final List<RaceCards> loserCamelCards = new ArrayList<>();
 
+    private boolean headless = false;
+
     public Game(Player[] players) {
         this.players = players;
 
@@ -52,6 +54,9 @@ public class Game {
 
     }
 
+    private void setHeadless (boolean headless) { this.headless = headless; }
+    public boolean getHeadless () { return headless; }
+
     // Start game
     public void start() {
         // First, we need to populate the AI Players game fields.
@@ -61,13 +66,24 @@ public class Game {
             }
         }
 
+        // check if this is a headless game
+        boolean headless = true;
+        for (Player p : players) {
+            if (!(p instanceof AIPlayer)) {
+                headless = false;
+            }
+        }
+        this.headless = headless;
+
         handleTurn(); // call this manually or from UI
     }
 
     public void handleTurn() {
         Player currentPlayer = players[playerTurn];
 
-        System.out.println("Player: " + currentPlayer);
+        //CamelMoveGenerator.calculateProbabilities (camels);
+
+        // System.out.println("Player: " + currentPlayer);
 
         if (!(currentPlayer instanceof HumanPlayer)) {
             takeTurn(currentPlayer);
@@ -132,21 +148,33 @@ public class Game {
         turnFinished();
     }
 
-    public void takeLapCard(Camel c) {
+    public LapCards getHighestValueCard(Camel c) {
 
         // Filter cards that have the same Camel as c
         List<LapCards> filteredCards = freeLapCards.stream()
                 .filter(card -> card.camel().equals(c))  // Keep cards that match the camel
                 .toList();  // Collect into a new list
 
-        // Find the LapCard with the largest value among the filtered cards
-        LapCards highestValueCard = filteredCards.get(0);  // Start with the first card
+        LapCards highestValueCard = new LapCards(c, -99);
 
-        for (LapCards card : filteredCards) {
-            if (card.value() > highestValueCard.value()) {
-                highestValueCard = card;  // Update if we find a card with a larger value
+        // Find the LapCard with the largest value among the filtered cards
+        if (!filteredCards.isEmpty()) {
+            highestValueCard = filteredCards.get(0);  // Start with the first card
+
+            for (LapCards card : filteredCards) {
+                if (card.value() > highestValueCard.value()) {
+                    highestValueCard = card;  // Update if we find a card with a larger value
+                }
             }
         }
+
+        return highestValueCard;
+
+    }
+
+    public void takeLapCard(Camel c) {
+
+        LapCards highestValueCard = getHighestValueCard(c);
 
         // Remove the card from the list after using it
         freeLapCards.remove(highestValueCard);
@@ -193,43 +221,15 @@ public class Game {
 
         // System.out.printf("stepSize %d%n", stepSize);
 
-        // Now, advance selected camel
-        advanceSelectedCamel(camel, stepSize);
+        if (camel.getX() <= COLS - 1) {
+
+            // Now, advance selected camel
+            camel.advanceCamel(camels, stepSize);
+
+        } // do not advance if already at end.
 
         // Finish turn
         turnFinished();
-    }
-
-    private void advanceSelectedCamel(Camel camel, int stepSize) {
-
-        if (camel.getX() == COLS - 1) {return; } // do not advance if already at end.
-
-        // set hasMoved flag
-        camel.setHasMoved();
-
-        // Get all camels to be moved
-        List<Camel> carriedCamels = getCarriedCamels(camel);
-
-        // y-shift
-        int yShift = getFreeTile(camel.getX() + stepSize) - camel.getY();
-
-        // Move the camels
-        for (Camel c : carriedCamels) {
-            c.moveCamel(stepSize);
-            c.setY(c.getY() + yShift);
-        }
-
-        // printPositions();
-    }
-
-    private int getFreeTile(int x) {
-        int y = 4;
-        for (Camel camel : camels) {
-            if (camel.getX() == x) {
-                y -= 1;
-            }
-        }
-        return y;
     }
 
     /*
@@ -245,28 +245,6 @@ public class Game {
     }
     */
 
-    private List<Camel> getCarriedCamels(Camel camel) {
-        // get the current and all its carried camels
-
-        List<Camel> carriedCamels = new ArrayList<>();
-
-        carriedCamels.add(camel); // add current
-
-        int x = camel.getX();
-        int y = camel.getY();
-
-        // if race has started
-        if (camel.getX() > 0) {
-            // add all camels with *smaller* y-value.
-            for (Camel c : camels) {
-                if (c.getX() == x && c.getY() < y) {
-                    carriedCamels.add(c);
-                }
-            }
-        }
-
-        return carriedCamels;
-    }
 
     private void shuffleCamelPositions() {
         // Shuffle the positions for the y-coordinate
@@ -310,6 +288,8 @@ public class Game {
             }
         }
 
+        winnerCamelCards.clear();
+        loserCamelCards.clear();
 
 
     }
@@ -321,6 +301,9 @@ public class Game {
         }
     }
     */
+
+
+    public static boolean hasCamelFinished(Camel c) { return c.getX() >= COLS - 1; }
 
     private void turnFinished() {
 
@@ -342,7 +325,7 @@ public class Game {
 
         // Check if race is finished. Can only occur after turn is finished
         for (Camel c : camels) {
-            if (c.getX() == COLS - 1) { // A camel has crossed the finishing line
+            if (hasCamelFinished(c)) { // A camel has crossed the finishing line
                 // System.out.printf("Race is finished! ");
                 finishRace();
             }
@@ -365,7 +348,7 @@ public class Game {
     public String getResults() {
         String camelWinner = "";
         for (Camel c : camels) {
-            if (camelRanking(c) == 1) {
+            if (c.camelRanking(camels) == 1) {
                 camelWinner = "The " + c.getName().toLowerCase() + " camel won the race. ";
             }
         }
@@ -404,8 +387,8 @@ public class Game {
             Camel winningCamel = null;
             Camel loserCamel = null;
             for ( Camel c : camels ) {
-                if (camelRanking(c) == 1) { winningCamel = c; }
-                if (camelRanking(c) == camels.length) { loserCamel = c; }
+                if (c.camelRanking(camels) == 1) { winningCamel = c; }
+                if (c.camelRanking(camels) == camels.length) { loserCamel = c; }
             }
             int[] value = {8, 5, 3, 2, 1}; // Maximum: 5 players, so length of value is five
             int valueCounter = 0;
@@ -438,14 +421,16 @@ public class Game {
     }
 
     private void lapFinished() {
+        System.out.printf("Lap finished!%n");
+
         // calculate lap results
         Camel firstCamel = camels[0];
         Camel secondCamel = camels[0];
         for (Camel c : camels) {
-            if (camelRanking(c) == 1) {
+            if (c.camelRanking(camels) == 1) {
                 firstCamel = c;
             }
-            if (camelRanking(c) == 2) {
+            if (c.camelRanking(camels) == 2) {
                 secondCamel = c;
             }
         }
@@ -455,24 +440,17 @@ public class Game {
             this.freeLapCards.addAll(p.returnPlayerLapCards());
         }
 
+        // Print lap results
+        for (Player p : players) {
+            System.out.printf("Player/ Money: %s/ %d%n", p.getName(), p.getMoney());
+        }
     }
 
     public Player[] getPlayers() { return players; }
 
-    public int camelRanking(Camel c) {
-        List<Camel> sorted = Arrays.asList(camels.clone()); // clone to avoid side effects
-
-        sorted.sort(Comparator
-                .comparingInt(Camel::getX).reversed()
-                .thenComparingInt(Camel::getY)
-        );
-
-        return sorted.indexOf(c) + 1;
-    }
-
     public Camel leadingCamel() {
         for (Camel c : camels) {
-            if (camelRanking(c) == 1) {
+            if (c.camelRanking(camels) == 1) {
                 return c;
             }
         }

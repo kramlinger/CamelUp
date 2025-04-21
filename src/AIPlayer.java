@@ -6,7 +6,7 @@ public abstract class AIPlayer extends Player {
         super(playerID, name);
     }
 
-    protected boolean isLegal(int move, Game game) {
+    protected boolean isLegal(int move) {
 
         // 0: Camel advance - this is always legal.
         if (move == 0) { return true; }
@@ -14,7 +14,6 @@ public abstract class AIPlayer extends Player {
         // 1 - 5: Bet on leg victory
         Camel[] camels = game.getCamels();
         if (move >= 1 & move <= 5) { // candidateMove either 1, 2, 3, 4, 5
-            System.out.printf("Move: %d%n", move);
             Camel targetCamel = camels[move - 1];
             return game.getFreeLapCards().stream().anyMatch(card -> card.camel().equals(targetCamel));
         }
@@ -31,12 +30,12 @@ public abstract class AIPlayer extends Player {
             return game.getRaceCards().stream().anyMatch(card -> card.camel().equals(targetCamel));
         }
 
-        return false; // shoud not happen
+        return false; // should not happen
     }
 
     protected void makeMove(int move) {
         // sanity check - should never happen.
-        if (!isLegal(move, game)) {
+        if (!isLegal(move)) {
             System.out.print("Tried to make an illegal move!");
         }
 

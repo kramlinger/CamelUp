@@ -21,9 +21,11 @@ public class Board {
     public Board(Game game) {
         this.game = game; // Store the game object
         this.tableModel = new DefaultTableModel(new String[] {
+                "Name",
                 "Player",
                 "Money",
-                "Lap Bets"
+                "Lap Bets",
+                "Race Bets"
         }, 0); // Initialize table model
 
         raceEndHandler();
@@ -42,7 +44,7 @@ public class Board {
         gbc.insets = new Insets(10, 10, 10, 10); // Padding
 
         // 1. New Game Button (Top-left)
-        JButton newGameButton = new JButton("New Game");
+        JButton newGameButton = new JButton("Restart");
         newGameButton.addActionListener(e -> {
             game.reset();
 
@@ -75,8 +77,10 @@ public class Board {
         for (Player player : players) {
             tableModel.addRow(new Object[]{
                     player.getName(),
+                    player.getPlayerType(),
                     player.getMoney(),
-                    player.lapBets()
+                    player.lapBets(),
+                    0
             });
         }
 
@@ -117,7 +121,7 @@ public class Board {
         mainPanel.add(gridPanel, gbc);
 
         // 6. Dynamic JLabel (Status/Message)
-        turnLabel = new JLabel("It's Player " + (game.playerTurn + 1) + "'s turn");
+        turnLabel = new JLabel("It's " + (game.playerTurn + 1) + "'s turn");
         turnLabel.setFont(new Font("Arial", Font.BOLD, 16));
         gbc.gridx = 0;
         gbc.gridy = 5;
@@ -352,8 +356,9 @@ public class Board {
         Player[] players = game.getPlayers();
 
         for (int i = 0; i < players.length; i++) {
-            tableModel.setValueAt(players[i].getMoney(), i, 1); // Update the Money column
-            tableModel.setValueAt(players[i].lapBets(), i, 2); // Update the Bets column
+            tableModel.setValueAt(players[i].getMoney(), i, 2); // Update the Money column
+            tableModel.setValueAt(players[i].lapBets(), i, 3); // Update the Bets column
+            tableModel.setValueAt(game.getCamels().length - players[i].lengthRaceCards(), i, 4);
         }
     }
 

@@ -11,12 +11,15 @@ public abstract class Player {
 
     protected final List<LapCards> playerLapCards = new ArrayList<>();
     protected List<RaceCards> raceCards;
+    protected String playerType;
 
     public Player(int playerID, String name) {
         this.playerID = playerID;
         this.name = name;
     }
     public abstract void takeTurn();
+
+    public String getPlayerType() {return playerType; }
 
     public String getName() { return name; }
 
@@ -44,6 +47,7 @@ public abstract class Player {
     public void returnRaceCards(RaceCards card) {
         raceCards.add(card);
     }
+    public int lengthRaceCards() { return raceCards.size(); }
 
     public void calculateLapResults(Camel firstCamel, Camel secondCamel) {
 
@@ -63,6 +67,7 @@ public abstract class Player {
                 this.money -= 1;
             }
         }
+
 
     }
 
