@@ -12,6 +12,9 @@ public class GreedyPlayer extends AIPlayer {
     @Override
     public void takeTurn() {
         int move = getGreedyMove();
+        if (game.getHeadless()) {
+            Writer.writeGameState(game, move);
+        }
         makeMove(move);
     }
 
@@ -27,7 +30,7 @@ public class GreedyPlayer extends AIPlayer {
         System.arraycopy(raceWinnerExpectation(), 0, expectation, 6, 5);
         System.arraycopy(raceLoserExpectation(), 0, expectation, 11, 5);
 
-        System.out.println(Arrays.toString(expectation));
+        //System.out.println(Arrays.toString(expectation));
 
         // Choose the best index
         int move = -1;
@@ -53,7 +56,7 @@ public class GreedyPlayer extends AIPlayer {
             float prob = c.getLapProbability();
             exp[i] = payoff * prob + (1 - prob) * (-1);
 
-            System.out.printf("%s: %f ,", c.getName(), prob);
+            //System.out.printf("%s: %f ,", c.getName(), prob);
         }
 
         return exp;

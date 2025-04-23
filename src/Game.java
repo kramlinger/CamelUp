@@ -4,6 +4,9 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.stream.Collectors;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 public class Game {
     private final Camel[] camels;
     private final Player[] players;
@@ -18,6 +21,8 @@ public class Game {
     private final List<RaceCards> loserCamelCards = new ArrayList<>();
 
     private boolean headless = false;
+    private String uniqueFileName;
+    private int currentPlayerAction;
 
     public Game(Player[] players) {
         this.players = players;
@@ -49,7 +54,7 @@ public class Game {
 
         // Set up GameState
         Player currentPlayer = players[playerTurn];
-        gameState = new GameState(this, currentPlayer, new int[24 + players.length * 2]);
+        gameState = new GameState(this, new int[24 + players.length * 2]);
         gameState.updateGameState();
 
     }
@@ -75,18 +80,29 @@ public class Game {
         }
         this.headless = headless;
 
+        if (this.headless) {
+
+            String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss_SSS").format(new Date());
+            String uniqueFileName = "data_" + timeStamp + ".txt";
+
+            this.uniqueFileName = uniqueFileName;
+
+            Writer.beginTxt(this);
+        }
+
+
         handleTurn(); // call this manually or from UI
     }
 
     public void handleTurn() {
-        Player currentPlayer = players[playerTurn];
 
-        //CamelMoveGenerator.calculateProbabilities (camels);
+        if (!raceFinished) {
 
-        // System.out.println("Player: " + currentPlayer);
+            Player currentPlayer = players[playerTurn];
 
-        if (!(currentPlayer instanceof HumanPlayer)) {
-            takeTurn(currentPlayer);
+            if (!(currentPlayer instanceof HumanPlayer)) {
+                takeTurn(currentPlayer);
+            }
         }
     }
 
@@ -95,6 +111,9 @@ public class Game {
         return camels;
     }
 
+    public String getUniqueFileName() {return this.uniqueFileName; }
+
+    public GameState getGameState() {return this.gameState; }
     public int getCols() { return COLS; }
     public List<RaceCards> getWinnerCamelCards() { return winnerCamelCards; }
     public List<RaceCards> getLoserCamelCards() { return loserCamelCards; }
@@ -370,7 +389,7 @@ public class Game {
             playerWinner = winners.get(0).getName() + " won the game! ";
         } else if (winners.size() > 1) {
             playerWinner = winners.stream()
-                    .map(player -> String.valueOf(player.getPlayerID() + 1))
+                    .map(player -> player.getName())
                     .collect(Collectors.joining(", "));
             playerWinner = "Players " + playerWinner + " are tied for first place! ";
         }
@@ -414,14 +433,22 @@ public class Game {
             // set game state
             this.raceFinished = true;
 
+            System.out.print(getResults());
+            System.out.println();
+
             // Notify listeners if the value has changed
             support.firePropertyChange("raceFinished", false, true);
+
+            // Finish writing the Log
+            if (this.headless) {
+                Writer.writeResult(this);
+            }
 
         }
     }
 
     private void lapFinished() {
-        System.out.printf("Lap finished!%n");
+        //System.out.printf("Lap finished!%n");
 
         // calculate lap results
         Camel firstCamel = camels[0];
@@ -441,9 +468,11 @@ public class Game {
         }
 
         // Print lap results
+        /*
         for (Player p : players) {
             System.out.printf("Player/ Money: %s/ %d%n", p.getName(), p.getMoney());
         }
+         */
     }
 
     public Player[] getPlayers() { return players; }

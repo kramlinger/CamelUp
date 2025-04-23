@@ -1,5 +1,4 @@
 import java.util.*;
-import java.util.stream.*;
 
 public class RandomPlayer extends AIPlayer {
 
@@ -11,6 +10,11 @@ public class RandomPlayer extends AIPlayer {
     @Override
     public void takeTurn() {
         int move = drawCandidateMove();
+
+        if (game.getHeadless()) {
+            Writer.writeGameState(game, move);
+        }
+
         makeMove(move);
     }
 

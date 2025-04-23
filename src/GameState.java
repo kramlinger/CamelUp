@@ -1,12 +1,10 @@
 public class GameState {
 
     private Game game;
-    private Player player;
     private int[] gameState;
 
-    public GameState(Game game, Player player, int[] gameState) {
+    public GameState(Game game, int[] gameState) {
         this.game = game;
-        this.player = player;
         this.gameState = gameState;
     }
 
@@ -29,6 +27,7 @@ public class GameState {
         Players
         - int money
         - int raceCards (length)
+
          */
         gameState[0] = game.getNumberPlayers();
         gameState[1] = game.getWinnerCamelCards().size();
@@ -53,12 +52,10 @@ public class GameState {
             index += 2;
         }
 
-        /*
-        Player specific information:
-            ...
-         */
+
     }
 
+    public int[] getGameState() { return gameState; }
 
 
 }
