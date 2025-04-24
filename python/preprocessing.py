@@ -17,22 +17,29 @@ files = [f for f in os.listdir(folder_path)
          if os.path.isfile(os.path.join(folder_path, f))
          and f.startswith('data')]
 
-print(len(files))
+print(len(files)) # 4/23/25: 10_000
 
 data = [[] for _ in files]
 
-winner = []
 
 for i, file in enumerate(files):
-    with open(folder_path + "/" + file, "r") as f:
-        data[i] = eval(f.read())
+    file_path = os.path.join(folder_path, file)
+    try:
+        with open(file_path, "r") as f:
+            content = f.read()
+            data[i] = eval(content)
 
-        # Create label: If player d[2][0] is the winner d[2][1], then label is set to true.
-        for d in data[i]:
-            d[2] = d[2][0] == d[2][1]
+            for d in data[i]:
+                if isinstance(d[2][1], int):
+                    d[2] = d[2][0] == d[2][1]
+                else:
+                    d[2] = d[2][0] in d[2][1]
+    except Exception as e:
+        print(f"Failed to process {file}: {e}")
 
 data = [d for dat in data for d in dat]
 
+print(len(data)) # 741_626 decisions
 
 
 # Split into components

@@ -1,39 +1,50 @@
+from flask import Flask, request, jsonify
 import evaluate
-import os # to read in and process data
-import joblib # to pickle
+import os
+import joblib
 import tensorflow as tf
+import numpy as np
 
-
-### Load action_encoder
-folder_path = "../data"
-
+# Load encoder and model once when the server starts
+folder_path = "./data"
 files = [f for f in os.listdir(folder_path)
          if os.path.isfile(os.path.join(folder_path, f))
          and f.startswith('processed')]
-file = files[-1] # take the last file that has been processed
+file = files[-1]
 
-### Load data
 _, _, action_encoder = joblib.load(folder_path + '/' + file)
-model = tf.keras.models.load_model("../data/action_quality_model.keras")
-
-### Load data from Game
-files = [f for f in os.listdir(folder_path)
-         if os.path.isfile(os.path.join(folder_path, f))
-         and f.startswith('data')]
-file = files[0] # take the last file that has been processed
-
-with open(folder_path + "/" + file, "r") as f:
-    data = eval(f.read())
-
-    # Create label: If player d[2][0] is the winner d[2][1], then label is set to true.
-    for d in data:
-        d[2] = d[2][0] == d[2][1]
+model = tf.keras.models.load_model("./data/action_quality_model.keras")
 
 all_possible_actions = list(range(16))
 
-for d in data:
-    gameState, action, label = d
-    res = evaluate.pick_best_action(model, gameState, all_possible_actions, action_encoder)
-    print(res)
+app = Flask(__name__)
+
+@app.route("/ping", methods=["GET"])
+def ping():
+    return "pong", 200
+
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    data = request.get_json()
+    if "gameState" not in data:
+        return jsonify({"error": "Missing 'gameState' in request"}), 400
+
+    try:
+        gameState = list(map(int, data["gameState"]))
+    except Exception as e:
+        return jsonify({"error": f"Invalid input: {e}"}), 400
+
+    # Evaluate actions
+    move = [
+        evaluate.evaluate_action(model, gameState, a, action_encoder)
+        for a in all_possible_actions
+    ]
+
+    return jsonify({"result": [float(x) for x in move]})
+
+
+if __name__ == "__main__":
+    app.run(port=5050)
 
 
